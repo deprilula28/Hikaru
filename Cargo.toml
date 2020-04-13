@@ -5,5 +5,10 @@ authors = ["deprilula28", "Dream", "Cyber28"]
 edition = "2018"
 
 [dependencies]
-tungstenite = "0.10.1"
 reqwest = "0.10.4"
+#ws = "0.9.1"
+tungstenite = "0.10.1"
+url = "2.1.0"
+flate2 = "1.0"
+serde_json = "1.0"
+serde = "1.0"

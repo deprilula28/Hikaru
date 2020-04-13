@@ -1,3 +1,5 @@
+mod bot;
+
 fn main() {
-    println!("Hello, world!");
+    bot::random_function();
 }
