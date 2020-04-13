@@ -1,21 +1,27 @@
-/*
-use ws::{connect, Sender, Message, Result as WsResult};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use flate2::Compression;
-use flate2::write::ZlibEncoder;
-*/
 use flate2::read::ZlibDecoder;
+use tungstenite::{connect, Message, WebSocket};
+use tungstenite::client::AutoStream;
 use tungstenite::stream::Stream;
-use tungstenite::{connect, Message};
 use url::Url;
 use std::io::{Cursor, Read};
 use serde_json::json;
 use std::error::Error;
 
-const DISCORD_BASE_API: &str = "https://discordapp.com/api";
 const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg";
 const GATEWAY_VERSION: u8 = 6;
+
+pub struct ShardConnection {
+    socket: WebSocket<AutoStream>,
+    token: String
+}
+
+impl ShardConnection {
+    pub fn new(token: &str, shardId: u32, shardTotal: u32) {
+        // let mut socket = connect(Url::parse(
+        //     format!("{}/?v={}&encoding=json&compress=zlib-stream", DISCORD_GATEWAY, GATEWAY_VERSION).as_str())
+        //     .unwrap()).expect("Failed to connect");
+    }
+}
 
 /*
 pub struct GatewayMessage {
@@ -47,6 +53,7 @@ impl Shard {
 }
 */
 
+/*
 pub fn random_function() {    /*
     connect(url, |out: Sender|
         move |msg: Message| {
@@ -109,3 +116,4 @@ pub fn random_function() {    /*
         }
     }
 }
+*/
