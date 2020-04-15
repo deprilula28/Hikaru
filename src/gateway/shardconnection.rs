@@ -5,14 +5,15 @@ use flate2::read::ZlibDecoder;
 use serde_json::Value;
 use tungstenite::protocol::frame::coding::CloseCode;
 use std::convert::TryFrom;
-use ansi_term::Color;
 
-use crate::gateway::gatewayopcode::GatewayPayload;
+use crate::gateway::op_code::GatewayPayload;
 use crate::util::error::Error;
 use crate::util::error::Error::GatewayError;
-use crate::gateway::gatewayclosecode::GatewayCloseCode;
+use crate::gateway::close_code::close_code;
 use crate::util::HikaruResult;
 use crate::gateway::gatewaypayloadhandler::PayloadHandler;
+
+use crate::{ shard_log, shard_log_num };
 
 const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg"; // Discord told us to cache the result from one of the requests, but it literally only returns this so... I guess it's cached in my code?
 const GATEWAY_VERSION: u8 = 6;
@@ -27,6 +28,7 @@ pub struct Shard {
     url: String,
     socket: WebSocket<AutoStream>,
     pub(crate) token: String,
+    pub(crate) seq: Option<u64>,
     pub init: Instant,
     pub state: GatewayState,
     pub heartbeat_interval: u64,
@@ -34,9 +36,9 @@ pub struct Shard {
 }
 
 impl Shard {
-    pub fn new(token: &str, shard_id: u32, shard_total: u32) -> HikaruResult<Shard> {
-        println!("{} Shard is initializing", shard_log_num!((shard_id, shard_total)));
-        let owned_token = token.to_owned();
+    pub fn new(token: &str, shards: (u32, u32)) -> HikaruResult<Shard> {
+        info!("{} Shard is initializing", shard_log_num!(shards));
+        let owned_token = token.to_string();
         let url = format!("{}/?v={}", DISCORD_GATEWAY, GATEWAY_VERSION);
         let (mut socket, _response) = connect(&url)?;
 
@@ -44,10 +46,11 @@ impl Shard {
             url,
             socket,
             token: owned_token,
+            seq: None,
             init: Instant::now(),
             state: GatewayState::Connecting,
             heartbeat_interval: 45000, // Default
-            shard_info: (shard_id, shard_total)
+            shard_info: shards
         })
     }
 
@@ -61,27 +64,27 @@ impl Shard {
             let mut message_closure = || -> HikaruResult<()> {
                 let decoded_msg_opt: Option<Value> = match self.socket.read_message()? {
                     Message::Binary(bytes) => {
-                        println!("{} Received binary payload {:?}", shard_log!(self), bytes);
+                        debug!("{} Received binary payload {:?}", shard_log!(self), bytes);
                         Some(serde_json::from_reader(ZlibDecoder::new(&bytes[..]))?)
                     }
                     Message::Text(text) => {
-                        println!("{} Received text payload {:?}", shard_log!(self), text);
+                        debug!("{} Received text payload {:?}", shard_log!(self), text);
                         Some(serde_json::from_str(&text)?)
                     }
                     Message::Close(close) => {
                         self.state = GatewayState::Disconnected;
-                        println!("{} Connection was closed {:?}", shard_log!(self), close);
+                        error!("{} Connection was closed {:?}", shard_log!(self), close);
                         return match close {
                             Some(frame) => match frame.code {
-                                CloseCode::Library(code) => Err(GatewayError(GatewayCloseCode::try_from(code)?)),
-                                CloseCode::Normal => Err(GatewayError(GatewayCloseCode::TimeOut)),
-                                _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
+                                CloseCode::Library(code) => Err(GatewayError(close_code::try_from(code)?)),
+                                CloseCode::Normal => Err(GatewayError(close_code::TimeOut)),
+                                _ => Err(GatewayError(close_code::UnknownCloseCode))
                             },
-                            _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
+                            _ => Err(GatewayError(close_code::UnknownCloseCode))
                         }
                     }
                     msg => {
-                        println!("{} Received message: {:?}", shard_log!(self), msg);
+                        info!("{} Received message: {:?}", shard_log!(self), msg);
                         None
                     }
                 };
@@ -91,7 +94,7 @@ impl Shard {
                         GatewayPayload::Hello(hello) => hello.handle_payload(self)?,
                         GatewayPayload::Dispatch() => {},
                         GatewayPayload::Heartbeat(seq) => {},
-                        GatewayPayload::Reconnect() => {},
+                        GatewayPayload::Reconnect() => return Err(GatewayError(close_code::Reconnect)),
                         GatewayPayload::InvalidSession() => {},
                         GatewayPayload::HeartbeatACK() => {},
                         _ => return Err(Error::Text(format!("Invalid gateway payload received {:?}", payload)))
@@ -99,10 +102,8 @@ impl Shard {
                 }
                 Ok(())
             };
-            match message_closure() {
-                Err(e) => return Err(e),
-                Ok(_) => {}
-            };
+
+            if let Err(err) = message_closure() { return Err(err) }
         }
     }
 }

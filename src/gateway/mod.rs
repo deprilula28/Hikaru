@@ -1,5 +1,5 @@
 pub mod shardconnection;
-pub mod gatewayopcode;
-pub mod gatewayclosecode;
+pub mod close_code;
+pub mod op_code;
 pub mod gatewaypayloadhandler;
 

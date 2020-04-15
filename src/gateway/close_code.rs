@@ -3,9 +3,10 @@ use num_enum::TryFromPrimitive;
 // https://discordapp.com/developers/docs/topics/opcodes-and-status-codes#gateway-gateway-close-event-codes
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u16)]
-pub enum GatewayCloseCode {
+pub enum close_code {
     TimeOut,
     UnknownCloseCode,
+    Reconnect,
     UnknownError = 4000,
     UnknownOpcode = 4001,
     DecodeError = 4002,
@@ -29,15 +30,16 @@ pub enum GatewayErrorResolve {
     Panic
 }
 
-impl GatewayCloseCode {
+impl close_code {
     pub fn resolve(&self) -> GatewayErrorResolve {
         match self {
-            GatewayCloseCode::TimeOut => GatewayErrorResolve::Reconnect,
-            GatewayCloseCode::UnknownCloseCode => GatewayErrorResolve::Reconnect,
-            GatewayCloseCode::UnknownError => GatewayErrorResolve::Reconnect,
-            GatewayCloseCode::RateLimit => GatewayErrorResolve::Reconnect,
-            GatewayCloseCode::InvalidSeq => GatewayErrorResolve::NewSession,
-            GatewayCloseCode::SessionTimeOut => GatewayErrorResolve::NewSession,
+            close_code::TimeOut => GatewayErrorResolve::Reconnect,
+            close_code::UnknownCloseCode => GatewayErrorResolve::Reconnect,
+            close_code::Reconnect => GatewayErrorResolve::Reconnect,
+            close_code::UnknownError => GatewayErrorResolve::Reconnect,
+            close_code::RateLimit => GatewayErrorResolve::Reconnect,
+            close_code::InvalidSeq => GatewayErrorResolve::NewSession,
+            close_code::SessionTimeOut => GatewayErrorResolve::NewSession,
             _ => GatewayErrorResolve::Panic
         }
     }
