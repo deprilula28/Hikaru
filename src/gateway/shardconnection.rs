@@ -1,25 +1,65 @@
 use flate2::read::ZlibDecoder;
 use tungstenite::{connect, Message, WebSocket};
 use tungstenite::client::AutoStream;
-use tungstenite::stream::Stream;
-use url::Url;
-use std::io::{Cursor, Read};
-use serde_json::json;
-use std::error::Error;
+use serde_json::Value;
+use crate::error::Error;
+use crate::gateway::gatewayopcode;
+use std::time::Instant;
+use crate::gateway::gatewayopcode::GatewayOpcode;
 
-const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg";
+const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg"; // Discord told us to cache the result from one of the requests, but it literally only returns this so... I guess it's cached in my code?
 const GATEWAY_VERSION: u8 = 6;
 
-pub struct ShardConnection {
+pub struct Shard {
+    url: String,
     socket: WebSocket<AutoStream>,
-    token: String
+    token: String,
+    init: Instant
 }
 
-impl ShardConnection {
-    pub fn new(token: &str, shardId: u32, shardTotal: u32) {
-        // let mut socket = connect(Url::parse(
-        //     format!("{}/?v={}&encoding=json&compress=zlib-stream", DISCORD_GATEWAY, GATEWAY_VERSION).as_str())
-        //     .unwrap()).expect("Failed to connect");
+impl Shard {
+    pub fn new(token: &str, shard_id: u32, shard_total: u32) -> Result<Shard, Error> {
+        println!("Shard is initializing ({}/{})", shard_id, shard_total);
+        let owned_token = token.to_owned();
+        let url = format!("{}/?v={}", DISCORD_GATEWAY, GATEWAY_VERSION);
+        let (mut socket, _response) = connect(&url)?;
+
+        Ok(Shard {
+            url,
+            socket,
+            token: owned_token,
+            init: Instant::now()
+        })
+    }
+}
+
+pub fn shard_loop(shard: &mut Shard) {
+    loop {
+        let mut message_closure = || -> Result<(), Error> {
+            let decoded_msg_opt: Option<Value> = match shard.socket.read_message()? {
+                Message::Binary(bytes) => {
+                    Some(serde_json::from_reader(ZlibDecoder::new(&bytes[..]))?)
+                }
+                Message::Text(text) => {
+                    Some(serde_json::from_str(&text)?)
+                }
+                msg => {
+                    println!("Received message: {:?}", msg);
+                    None
+                }
+            };
+            if let Some(decoded_message) = decoded_msg_opt {
+                println!("{:?}", GatewayOpcode::decode(&decoded_message)?);
+            }
+            Ok(())
+        };
+        match message_closure() {
+            Err(e) => {
+                println!("Error decoding message: {:?}", e);
+                break;
+            },
+            Ok(_) => {}
+        };
     }
 }
 
