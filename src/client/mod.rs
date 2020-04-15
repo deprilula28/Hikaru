@@ -56,7 +56,7 @@ impl Client {
 
         thread::spawn(move || {
             let mut starter_closure = || -> HikaruResult<()> {
-                for i in 0..shard_info.1 {
+                for i in 0..shard_info.1 - 1 {
                     let shard = Shard::new(&token_copy, (i + shard_info.0, shard_info.2))?;
                     { vector_copy.lock().unwrap()[i as usize] = shard; }
                     thread::sleep(Duration::from_millis(5 * 1000));

@@ -73,7 +73,7 @@ impl Shard {
                     }
                     Message::Close(close) => {
                         self.state = GatewayState::Disconnected;
-                        error!("{} Connection was closed {:?}", shard_log!(self), close);
+                        debug!("{} Connection was closed {:?}", shard_log!(self), close);
                         return match close {
                             Some(frame) => match frame.code {
                                 CloseCode::Library(code) => Err(GatewayError(GatewayCloseCode::try_from(code)?)),
@@ -84,7 +84,7 @@ impl Shard {
                         }
                     }
                     msg => {
-                        info!("{} Received message: {:?}", shard_log!(self), msg);
+                        warn!("{} Received message of unknown type: {:?}", shard_log!(self), msg);
                         None
                     }
                 };
