@@ -6,6 +6,7 @@ use num_enum::TryFromPrimitive;
 pub enum GatewayCloseCode {
     TimeOut,
     UnknownCloseCode,
+    Reconnect,
     UnknownError = 4000,
     UnknownOpcode = 4001,
     DecodeError = 4002,
@@ -34,6 +35,7 @@ impl GatewayCloseCode {
         match self {
             GatewayCloseCode::TimeOut => GatewayErrorResolve::Reconnect,
             GatewayCloseCode::UnknownCloseCode => GatewayErrorResolve::Reconnect,
+            GatewayCloseCode::Reconnect => GatewayErrorResolve::Reconnect,
             GatewayCloseCode::UnknownError => GatewayErrorResolve::Reconnect,
             GatewayCloseCode::RateLimit => GatewayErrorResolve::Reconnect,
             GatewayCloseCode::InvalidSeq => GatewayErrorResolve::NewSession,

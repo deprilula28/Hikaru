@@ -3,9 +3,11 @@ use tungstenite::error::{Error as TungsteniteError};
 use serde_json::error::{Error as SerdeError};
 use std::io::{Error as StdError};
 use num_enum::TryFromPrimitiveError;
+use std::sync::{RwLockReadGuard, PoisonError};
 use serde_json::Value;
 
 use crate::gateway::gatewayclosecode::GatewayCloseCode;
+use crate::gateway::shardconnection::Shard;
 
 #[derive(Debug)]
 pub enum Error {

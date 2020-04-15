@@ -28,7 +28,7 @@ pub struct IdentifyProperties {
 #[derive(Debug)]
 pub enum GatewayPayload {
     Dispatch(),              // RECEIVE An event was dispatched.
-    Heartbeat(u64),          // SEND/RECEIVE Fired periodically by the client to keep the connection alive.
+    Heartbeat(Option<u64>),  // SEND/RECEIVE Fired periodically by the client to keep the connection alive.
     Identify(Identify),      // SEND Starts a new session during the initial handshake.
     PresenceUpdate(),        // SEND Update the client's presence.
     VoiceStateUpdate(),      // SEND Used to join/leave or move between voice channels.
@@ -58,7 +58,7 @@ impl GatewayPayload {
             let d = &value["d"];
             match code.as_u64() {
                 Some(0) => Ok(GatewayPayload::Dispatch()),
-                Some(1) => Ok(GatewayPayload::Heartbeat(if let Some(v) = d.as_u64() { v } else { return Err(Error::Text(String::from("Invalid gateway request, d not a number for op 1 heartbeat"))) })), // TODO make this less shit
+                Some(1) => Ok(GatewayPayload::Heartbeat(d.as_u64())), // TODO make this less shit
                 Some(7) => Ok(GatewayPayload::Reconnect()),
                 Some(9) => Ok(GatewayPayload::InvalidSession()),
                 Some(10) => Ok(GatewayPayload::Hello(Hello::deserialize(d)?)),

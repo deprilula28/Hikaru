@@ -27,6 +27,7 @@ pub struct Shard {
     url: String,
     socket: WebSocket<AutoStream>,
     pub(crate) token: String,
+    pub(crate) seq: Option<u64>,
     pub init: Instant,
     pub state: GatewayState,
     pub heartbeat_interval: u64,
@@ -34,9 +35,9 @@ pub struct Shard {
 }
 
 impl Shard {
-    pub fn new(token: &str, shard_id: u32, shard_total: u32) -> HikaruResult<Shard> {
-        println!("{} Shard is initializing", shard_log_num!((shard_id, shard_total)));
-        let owned_token = token.to_owned();
+    pub fn new(token: &String, shards: (u32, u32)) -> HikaruResult<Shard> {
+        println!("{} Shard is initializing", shard_log_num!(shards));
+        let owned_token = token.clone();
         let url = format!("{}/?v={}", DISCORD_GATEWAY, GATEWAY_VERSION);
         let (mut socket, _response) = connect(&url)?;
 
@@ -44,10 +45,11 @@ impl Shard {
             url,
             socket,
             token: owned_token,
+            seq: None,
             init: Instant::now(),
             state: GatewayState::Connecting,
             heartbeat_interval: 45000, // Default
-            shard_info: (shard_id, shard_total)
+            shard_info: shards
         })
     }
 
@@ -91,7 +93,7 @@ impl Shard {
                         GatewayPayload::Hello(hello) => hello.handle_payload(self)?,
                         GatewayPayload::Dispatch() => {},
                         GatewayPayload::Heartbeat(seq) => {},
-                        GatewayPayload::Reconnect() => {},
+                        GatewayPayload::Reconnect() => return Err(GatewayError(GatewayCloseCode::Reconnect)),
                         GatewayPayload::InvalidSession() => {},
                         GatewayPayload::HeartbeatACK() => {},
                         _ => return Err(Error::Text(format!("Invalid gateway payload received {:?}", payload)))
