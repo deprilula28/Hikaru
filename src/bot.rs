@@ -1,11 +1,9 @@
 use crate::gateway::shardconnection::Shard;
 use crate::rest::RestSender;
-use ansi_term::Color;
 use crate::util::{format_time_period, HikaruResult};
 use std::thread;
 use std::sync::{Arc, RwLock, Mutex};
 use std::time::Duration;
-use crate::gateway::gatewayopcode::GatewayPayload;
 use serde_json::{Value, Number};
 use crate::util::error::Error;
 
