@@ -1,8 +1,17 @@
 language: rust
+
 rust:
   - stable
   - beta
   - nightly
+
 jobs:
   allow_failures:
     - rust: nightly
+
+env:
+  - token="$TEST_TOKEN"
+
+cache: cargo
+
+script: "cargo build"
