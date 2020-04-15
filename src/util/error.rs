@@ -6,7 +6,7 @@ use num_enum::TryFromPrimitiveError;
 use std::sync::{RwLockReadGuard, PoisonError};
 use serde_json::Value;
 
-use crate::gateway::close_code::close_code;
+use crate::gateway::close_code::GatewayCloseCode;
 use crate::gateway::shardconnection::Shard;
 
 #[derive(Debug)]
@@ -19,8 +19,8 @@ pub enum Error {
     StdError(StdError),
     AnsiTermError(u32),
 
-    Invalidclose_code(TryFromPrimitiveError<close_code>),
-    GatewayError(close_code),
+    Invalidclose_code(TryFromPrimitiveError<GatewayCloseCode>),
+    GatewayError(GatewayCloseCode),
     Text(String)
 }
 
@@ -30,8 +30,8 @@ impl From<u32> for Error {
     }
 }
 
-impl From<TryFromPrimitiveError<close_code>> for Error {
-    fn from(e: TryFromPrimitiveError<close_code>) -> Error {
+impl From<TryFromPrimitiveError<GatewayCloseCode>> for Error {
+    fn from(e: TryFromPrimitiveError<GatewayCloseCode>) -> Error {
         Error::Invalidclose_code(e)
     }
 }

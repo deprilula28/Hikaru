@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 use crate::gateway::op_code::GatewayPayload;
 use crate::util::error::Error;
 use crate::util::error::Error::GatewayError;
-use crate::gateway::close_code::close_code;
+use crate::gateway::close_code::GatewayCloseCode;
 use crate::util::HikaruResult;
 use crate::gateway::gatewaypayloadhandler::PayloadHandler;
 
@@ -76,11 +76,11 @@ impl Shard {
                         error!("{} Connection was closed {:?}", shard_log!(self), close);
                         return match close {
                             Some(frame) => match frame.code {
-                                CloseCode::Library(code) => Err(GatewayError(close_code::try_from(code)?)),
-                                CloseCode::Normal => Err(GatewayError(close_code::TimeOut)),
-                                _ => Err(GatewayError(close_code::UnknownCloseCode))
+                                CloseCode::Library(code) => Err(GatewayError(GatewayCloseCode::try_from(code)?)),
+                                CloseCode::Normal => Err(GatewayError(GatewayCloseCode::TimeOut)),
+                                _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
                             },
-                            _ => Err(GatewayError(close_code::UnknownCloseCode))
+                            _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
                         }
                     }
                     msg => {
@@ -94,7 +94,7 @@ impl Shard {
                         GatewayPayload::Hello(hello) => hello.handle_payload(self)?,
                         GatewayPayload::Dispatch() => {},
                         GatewayPayload::Heartbeat(seq) => {},
-                        GatewayPayload::Reconnect() => return Err(GatewayError(close_code::Reconnect)),
+                        GatewayPayload::Reconnect() => return Err(GatewayError(GatewayCloseCode::Reconnect)),
                         GatewayPayload::InvalidSession() => {},
                         GatewayPayload::HeartbeatACK() => {},
                         _ => return Err(Error::Text(format!("Invalid gateway payload received {:?}", payload)))
