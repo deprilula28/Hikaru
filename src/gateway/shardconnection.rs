@@ -1,25 +1,41 @@
-use flate2::read::ZlibDecoder;
 use tungstenite::{connect, Message, WebSocket};
 use tungstenite::client::AutoStream;
-use serde_json::Value;
-use crate::error::Error;
-use crate::gateway::gatewayopcode;
 use std::time::Instant;
-use crate::gateway::gatewayopcode::GatewayOpcode;
+use flate2::read::ZlibDecoder;
+use serde_json::Value;
+use tungstenite::protocol::frame::coding::CloseCode;
+use std::convert::TryFrom;
+use ansi_term::Color;
+
+use crate::gateway::gatewayopcode::GatewayPayload;
+use crate::util::error::Error;
+use crate::util::error::Error::GatewayError;
+use crate::gateway::gatewayclosecode::GatewayCloseCode;
+use crate::util::HikaruResult;
+use crate::gateway::gatewaypayloadhandler::PayloadHandler;
 
 const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg"; // Discord told us to cache the result from one of the requests, but it literally only returns this so... I guess it's cached in my code?
 const GATEWAY_VERSION: u8 = 6;
 
+pub enum GatewayState {
+    Connecting,
+    Connected,
+    Disconnected
+}
+
 pub struct Shard {
     url: String,
     socket: WebSocket<AutoStream>,
-    token: String,
-    init: Instant
+    pub(crate) token: String,
+    pub init: Instant,
+    pub state: GatewayState,
+    pub heartbeat_interval: u64,
+    pub shard_info: (u32, u32)
 }
 
 impl Shard {
-    pub fn new(token: &str, shard_id: u32, shard_total: u32) -> Result<Shard, Error> {
-        println!("Shard is initializing ({}/{})", shard_id, shard_total);
+    pub fn new(token: &str, shard_id: u32, shard_total: u32) -> HikaruResult<Shard> {
+        println!("{} Shard is initializing", shard_log_num!((shard_id, shard_total)));
         let owned_token = token.to_owned();
         let url = format!("{}/?v={}", DISCORD_GATEWAY, GATEWAY_VERSION);
         let (mut socket, _response) = connect(&url)?;
@@ -28,132 +44,65 @@ impl Shard {
             url,
             socket,
             token: owned_token,
-            init: Instant::now()
+            init: Instant::now(),
+            state: GatewayState::Connecting,
+            heartbeat_interval: 45000, // Default
+            shard_info: (shard_id, shard_total)
         })
     }
-}
 
-pub fn shard_loop(shard: &mut Shard) {
-    loop {
-        let mut message_closure = || -> Result<(), Error> {
-            let decoded_msg_opt: Option<Value> = match shard.socket.read_message()? {
-                Message::Binary(bytes) => {
-                    Some(serde_json::from_reader(ZlibDecoder::new(&bytes[..]))?)
+    pub fn send_payload(&mut self, payload: &GatewayPayload) -> HikaruResult<()> {
+        let json = serde_json::to_string(&payload.serialize()?)?;
+        Ok(self.socket.write_message(Message::Text(json))?)
+    }
+
+    pub fn shard_loop(&mut self) -> HikaruResult<()> {
+        loop {
+            let mut message_closure = || -> HikaruResult<()> {
+                let decoded_msg_opt: Option<Value> = match self.socket.read_message()? {
+                    Message::Binary(bytes) => {
+                        println!("{} Received binary payload {:?}", shard_log!(self), bytes);
+                        Some(serde_json::from_reader(ZlibDecoder::new(&bytes[..]))?)
+                    }
+                    Message::Text(text) => {
+                        println!("{} Received text payload {:?}", shard_log!(self), text);
+                        Some(serde_json::from_str(&text)?)
+                    }
+                    Message::Close(close) => {
+                        self.state = GatewayState::Disconnected;
+                        println!("{} Connection was closed {:?}", shard_log!(self), close);
+                        return match close {
+                            Some(frame) => match frame.code {
+                                CloseCode::Library(code) => Err(GatewayError(GatewayCloseCode::try_from(code)?)),
+                                CloseCode::Normal => Err(GatewayError(GatewayCloseCode::TimeOut)),
+                                _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
+                            },
+                            _ => Err(GatewayError(GatewayCloseCode::UnknownCloseCode))
+                        }
+                    }
+                    msg => {
+                        println!("{} Received message: {:?}", shard_log!(self), msg);
+                        None
+                    }
+                };
+                if let Some(decoded_message) = decoded_msg_opt {
+                    let payload = GatewayPayload::deserialize(decoded_message)?;
+                    match payload {
+                        GatewayPayload::Hello(hello) => hello.handle_payload(self)?,
+                        GatewayPayload::Dispatch() => {},
+                        GatewayPayload::Heartbeat(seq) => {},
+                        GatewayPayload::Reconnect() => {},
+                        GatewayPayload::InvalidSession() => {},
+                        GatewayPayload::HeartbeatACK() => {},
+                        _ => return Err(Error::Text(format!("Invalid gateway payload received {:?}", payload)))
+                    }
                 }
-                Message::Text(text) => {
-                    Some(serde_json::from_str(&text)?)
-                }
-                msg => {
-                    println!("Received message: {:?}", msg);
-                    None
-                }
+                Ok(())
             };
-            if let Some(decoded_message) = decoded_msg_opt {
-                println!("{:?}", GatewayOpcode::decode(&decoded_message)?);
-            }
-            Ok(())
-        };
-        match message_closure() {
-            Err(e) => {
-                println!("Error decoding message: {:?}", e);
-                break;
-            },
-            Ok(_) => {}
-        };
-    }
-}
-
-/*
-pub struct GatewayMessage {
-    opcode: u32,
-    d: Value, 
-}
-
-impl GatewayMessage {
-    fn send(&self, shard: &Shard) {
-
-    }
-}
-
-fn decode(shard: &Shard, message: &str) -> GatewayMessage {
-
-}
-pub struct Shard {
-    connection: Sender,
-    zlibEncoder: ZlibEncoder<
-}
-
-impl Shard {
-    pub fn new(token: &str) -> Shard {
-        Shard {
-            connection:
-            zlibEncoder: ZlibEncoder::new(Vec::new(), Compression::default())
+            match message_closure() {
+                Err(e) => return Err(e),
+                Ok(_) => {}
+            };
         }
     }
 }
-*/
-
-/*
-pub fn random_function() {    /*
-    connect(url, |out: Sender|
-        move |msg: Message| {
-            println!("got message: {:?}", msg);
-        })?;
-        */
-    let (mut socket, response) = connect(Url::parse(
-        format!("{}/?v={}&encoding=json&compress=zlib-stream", DISCORD_GATEWAY, GATEWAY_VERSION).as_str())
-            .unwrap()).expect("Failed to connect");
-
-    socket.set_config(|c| {
-        c.max_frame_size = None;
-        c.max_message_size = None;
-    });
-    /*
-    let stream_impl = match socket.get_mut() {
-        Stream::Plain(stream) => stream,
-        Stream::Tls(stream) => stream.get_mut(),
-    };
-    stream_impl.set_read_timeout(Some(StdDuration::from_millis(600)))?;
-    stream_impl.set_write_timeout(Some(StdDuration::from_millis(50)))?;*/
-
-    println!("Connected successfully, response: {}", response.status());
-    println!("Response contains the following headers:");
-    for (ref header, value) in response.headers() {
-        println!("- {}: {:?}", header, value);
-    }
-
-    // Send identify
-    serde_json::to_string(&json!({
-        "op": 2,
-        "d": {
-            "compress": true,
-            "token": "Bot token",
-            "properties": {
-                "$browser": "hikaru",
-                "$device": "hikaru",
-                "$os": "windows"
-            }
-        }
-    })).map(Message::Text).and_then(|msg: Message| Ok(socket.write_message(msg).map_err(Error::from)));
-    println!("Sent identify");
-
-    loop {
-        let msg = socket.read_message().expect("Failed to read message");
-        match msg {
-            Message::Binary(vec) => {
-                /*
-                let mut decoder = ZlibDecoder::new(Cursor::new(vec));
-                let mut string_buffer = String::new();
-                decoder.read_to_string(&mut string_buffer).unwrap();
-                println!("Received: {}", string_buffer);
-                */
-                println("Received binary: {}", vec);
-            },
-            Message::Text(text) => {
-                println!("Received text: {}", text)
-            },
-            _ => {}
-        }
-    }
-}
-*/
