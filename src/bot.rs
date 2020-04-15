@@ -45,8 +45,7 @@ impl Bot {
     }
 
     pub fn init_shards(&mut self) -> HikaruResult<()> {
-        println!("{} Starting {}-{} out of {} shards (ETA {})",
-                 Color::Cyan.bold().paint("[Shard Manager]"),
+        println!("[Shard Manager] Starting {}-{} out of {} shards (ETA {})",
                  self.shard_info.0, self.shard_info.0 + self.shard_info.1, self.shard_info.2,
                  format_time_period(self.shard_info.1 as u64 * 5 * 1000));
         let vector: Arc<Mutex<Vec<Shard>>> = Arc::new(Mutex::new(Vec::with_capacity(self.shard_info.1 as usize)));
@@ -64,11 +63,8 @@ impl Bot {
                 Ok(())
             };
             match starter_closure() {
-                Err(e) => println!("{} {} {:?}",
-                       Color::Cyan.bold().paint("[Shard Manager]"),
-                       Color::Red.bold().paint("An error occured when starting shards"), e),
-                Ok(_) => println!("{} Finished starting shards",
-                      Color::Cyan.bold().paint("[Shard Manager]"))
+                Err(e) => println!("[Shard Manager] An error occured when starting shards {:?}", e),
+                Ok(_) => println!("[Shard Manager] Finished starting shards")
             };
         });
         self.shards = Some(vector);
