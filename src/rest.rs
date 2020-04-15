@@ -11,10 +11,10 @@ pub struct RestSender {
 }
 
 impl RestSender {
-    pub fn new(token: &String) -> RestSender {
+    pub fn new(token: &str) -> RestSender {
         RestSender {
             client: Client::new(),
-            token: token.clone()
+            token: token.to_string()
         }
     }
 
@@ -24,12 +24,12 @@ impl RestSender {
             .header(reqwest::header::AUTHORIZATION, &self.token)
             .send().await?;
         let json = response.json().await?;
-        println!("GET {}: {:?}", endpoint, json);
+        debug!("GET {}: {:?}", endpoint, json);
         Ok(json)
     }
 
     pub async fn post(&self, endpoint: &str, body: &str) {
         let response = self.client.post(&format!("{}{}", DISCORD_BASE_API, endpoint)).body(body.to_owned()).send().await;
-        println!("POST {}: {:?}", endpoint, response);
+        debug!("POST {}: {:?}", endpoint, response);
     }
 }
