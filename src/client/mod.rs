@@ -1,5 +1,5 @@
 use std::thread;
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 use std::time::Duration;
 use serde_json::{Value, Number};
 
@@ -13,7 +13,7 @@ pub struct Client {
     token: String,
     shard_info: (u32, u32, u32),
     pub rest: RestSender,
-    pub shards: Option<Arc<Mutex<Vec<Shard>>>>
+    pub shards: Option<Vec<Arc<Mutex<Shard>>>>
 }
 
 impl Client {
@@ -27,6 +27,7 @@ impl Client {
     // }
 
     pub fn new(token: &str, shards: (u32, u32, u32)) -> Client {
+        println!("Starting client");
         Client {
             token: token.to_string(),
             rest: RestSender::new(token),
@@ -35,10 +36,19 @@ impl Client {
         }
     }
 
-    pub fn heartbeat_thread(&self) -> ! {
+    pub fn heartbeat_thread(&self) -> HikaruResult<()> {
         loop {
+            debug!("Heartbeat waiting 45s");
             thread::sleep(Duration::from_millis(45 * 1000));
-            let mut shards = self.shards.as_ref().unwrap().lock().unwrap();
+            debug!("Executing heartbeat...");
+            if let Some(shards) = &self.shards {
+                for shard in shards {
+                    let mut lock = shard.lock().unwrap();
+                    let seq = lock.seq;
+                    lock.send_payload(&GatewayPayload::Heartbeat(seq));
+                }
+            }
+            // let mut shards = self.shards.as_ref().unwrap().lock().unwrap();
             // for mut x in shards.iter() {
             //     x.send_payload(&GatewayPayload::Heartbeat(x.seq));
             // }
@@ -46,29 +56,19 @@ impl Client {
     }
 
     pub fn init_shards(&mut self) -> HikaruResult<()> {
-        info!("[Shard Manager] Starting {}-{} out of {} shards (ETA {})",
+        println!("[Shard Manager] Starting {}-{} out of {} shards (ETA {})",
                  self.shard_info.0, self.shard_info.0 + self.shard_info.1, self.shard_info.2,
                  format_time_period(self.shard_info.1 as u64 * 5 * 1000));
-        let vector: Arc<Mutex<Vec<Shard>>> = Arc::new(Mutex::new(Vec::with_capacity(self.shard_info.1 as usize)));
         let shard_info = self.shard_info;
-        let vector_copy = vector.clone();
         let token_copy = self.token.clone();
 
-        thread::spawn(move || {
-            let mut starter_closure = || -> HikaruResult<()> {
-                for i in 0..shard_info.1 - 1 {
-                    let shard = Shard::new(&token_copy, (i + shard_info.0, shard_info.2))?;
-                    { vector_copy.lock().unwrap()[i as usize] = shard; }
-                    thread::sleep(Duration::from_millis(5 * 1000));
-                }
-                Ok(())
-            };
-            match starter_closure() {
-                Err(e) => info!("[Shard Manager] An error occured when starting shards {:?}", e),
-                Ok(_) => info!("[Shard Manager] Finished starting shards")
-            };
-        });
-        self.shards = Some(vector);
+        self.shards = Some((shard_info.0 .. shard_info.1).map(|num| {
+            let mut shard = Arc::new(Mutex::new(Shard::new(&token_copy, (num, shard_info.2))?));
+            let mut clone = shard.clone();
+            thread::spawn(|| Shard::shard_loop(clone));
+            thread::sleep(Duration::from_millis(5 * 1000));
+            return Ok(shard);
+        }).map(|res: Result<Arc<Mutex<Shard>>, Error>| res.unwrap()).collect());
 
         Ok(())
     }

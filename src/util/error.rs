@@ -1,9 +1,10 @@
+use async_tungstenite::tungstenite::{HandshakeError, ClientHandshake};
 use reqwest::{Error as ReqwestError};
 use tungstenite::error::{Error as TungsteniteError};
 use serde_json::error::{Error as SerdeError};
 use std::io::{Error as StdError};
 use num_enum::TryFromPrimitiveError;
-use std::sync::{RwLockReadGuard, PoisonError};
+use std::sync::{PoisonError, MutexGuard};
 use serde_json::Value;
 
 use crate::gateway::close_code::GatewayCloseCode;
@@ -19,7 +20,7 @@ pub enum Error {
     StdError(StdError),
     AnsiTermError(u32),
 
-    Invalidclose_code(TryFromPrimitiveError<GatewayCloseCode>),
+    InvalidCloseCode(TryFromPrimitiveError<GatewayCloseCode>),
     GatewayError(GatewayCloseCode),
     Text(String)
 }
@@ -32,7 +33,7 @@ impl From<u32> for Error {
 
 impl From<TryFromPrimitiveError<GatewayCloseCode>> for Error {
     fn from(e: TryFromPrimitiveError<GatewayCloseCode>) -> Error {
-        Error::Invalidclose_code(e)
+        Error::InvalidCloseCode(e)
     }
 }
 

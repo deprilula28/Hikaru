@@ -15,7 +15,7 @@ fn test_babysteps() -> Result<(), crate::util::error::Error> {
     let env = env_logger::Env::default();
 
     let mut client = Client::new(&std::env::var("token").expect("No `token` env variable set"), (0, 1, 1));
-    client.init_shards();
-    client.heartbeat_thread();
+    if let Err(e) = client.init_shards() { warn!("Error: {:?}", e); }
+    if let Err(e) = client.heartbeat_thread() { warn!("Error: {:?}", e); }
     Ok(())
 }
