@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::Value;
-use crate::util::error::Error;
 use crate::util::HikaruResult;
 
 pub const DISCORD_BASE_API: &str = "https://discordapp.com/api";

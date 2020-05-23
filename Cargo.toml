@@ -5,15 +5,22 @@ authors = ["deprilula28", "Dream", "Cyber28"]
 edition = "2018"
 
 [dependencies]
-reqwest = { version = "0.10.4", features = [ "json" ] }
-tungstenite = "0.10.1"
-flate2 = "1.0"
+async-tungstenite = { version = "0.4.2", features = ["tokio-runtime", "tokio-tls", "async-std-runtime"] }
+async-trait = "0.1.31" # Hopefully temporary
+
+futures = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+
+tokio = { version = "0.2.18", features = ["full"] }
+tokio-tls = "0.3.1"
+
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "0.2.18", features = ["macros", "tcp", "dns", "io-util"] }
+
+reqwest = { version = "0.10.4", features = [ "json" ] }
+flate2 = "1.0"
 num_enum = "0.4.3"
 log = "0.4.0"
-async-tungstenite = "0.4.2"
 
 [dev-dependencies]
 env_logger = "0.7.1"

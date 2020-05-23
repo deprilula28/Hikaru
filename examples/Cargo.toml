@@ -1,0 +1,8 @@
+[package]
+name = "hikaru-examples"
+version = "0.1.0"
+authors = ["deprilula28", "Dream", "Cyber28"]
+edition = "2018"
+
+[dependencies]
+env_logger = "0.7.1"

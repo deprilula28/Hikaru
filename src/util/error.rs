@@ -1,14 +1,11 @@
-use async_tungstenite::tungstenite::{HandshakeError, ClientHandshake};
+use async_tungstenite::tungstenite::error::{Error as TungsteniteError};
 use reqwest::{Error as ReqwestError};
-use tungstenite::error::{Error as TungsteniteError};
 use serde_json::error::{Error as SerdeError};
 use std::io::{Error as StdError};
 use num_enum::TryFromPrimitiveError;
-use std::sync::{PoisonError, MutexGuard};
 use serde_json::Value;
 
 use crate::gateway::close_code::GatewayCloseCode;
-use crate::gateway::shardconnection::Shard;
 
 #[derive(Debug)]
 pub enum Error {

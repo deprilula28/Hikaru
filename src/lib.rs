@@ -5,4 +5,4 @@ pub mod rest;
 
 #[macro_use] extern crate log;
 
-#[cfg(test)] mod tests;
+// #[cfg(test)] mod tests;
