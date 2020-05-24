@@ -1,8 +1,12 @@
 language: rust
 
+os:
+  - linux
+  - windows
+  - osx
+  
 rust:
   - stable
-  - beta
   - nightly
 
 jobs:
