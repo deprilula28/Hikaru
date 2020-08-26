@@ -5,7 +5,7 @@ authors = ["deprilula28", "Dream", "Cyber28"]
 edition = "2018"
 
 [dependencies]
-reqwest = { version = "0.10.4", features = [ "json" ] }
+reqwest = { version = "0.10.8", features = [ "json" ] }
 tungstenite = "0.10.1"
 flate2 = "1.0"
 serde_json = "1.0"
